@@ -1,0 +1,97 @@
+# ============================================================================
+# ARCHIVO DE CONFIGURACIÓN - GEMINI CLI ADAPTER
+# ============================================================================
+# Copia este contenido a un archivo llamado '.env' en el directorio raíz:
+# ============================================================================
+
+# ============================================================================
+# CONFIGURACIÓN PRINCIPAL (REQUERIDO)
+# ============================================================================
+
+# API Key de Gemini (OBLIGATORIO para usar el API real)
+# Obtén tu key gratis en: https://makersuite.google.com/app/apikey
+GEMINI_API_KEY=tu_gemini_api_key_aqui
+
+# ============================================================================
+# MODELOS GEMINI DISPONIBLES (información)
+# ============================================================================
+# El sistema actualmente usa: gemini-2.5-flash (optimizado para velocidad)
+# 
+# Modelos disponibles:
+# - gemini-2.5-pro: Modelo más potente con máxima precisión y capacidades
+# - gemini-2.5-flash: Modelo equilibrado precio/rendimiento, ideal para la mayoría de casos ⭐ EN USO
+# - gemini-2.5-flash-lite: Modelo optimizado para velocidad y baja latencia
+# 
+# Nota: Los modelos anteriores como 'gemini-pro' han sido deprecados
+
+# ============================================================================
+# CONFIGURACIÓN VERTEX AI (OPCIONAL - Para uso empresarial)
+# ============================================================================
+
+# Proyecto de Google Cloud Platform (opcional)
+# GOOGLE_CLOUD_PROJECT=tu-proyecto-gcp
+
+# Región donde está tu proyecto (opcional)
+# GOOGLE_CLOUD_LOCATION=us-central1
+
+# ============================================================================
+# CONFIGURACIÓN DEL SISTEMA
+# ============================================================================
+
+# Nivel de logging (error, warn, info, debug, trace)
+RUST_LOG=info
+
+# Timeout para llamadas a API (segundos) - Aumentado para mejor conectividad
+API_TIMEOUT_SECONDS=60
+
+# Número máximo de intentos por tarea
+MAX_ATTEMPTS=3
+
+# Habilitar verificación de código generado (true/false)
+ENABLE_VERIFICATION=true
+
+# Usar Gemini CLI interactivo en lugar de API directa (true/false)
+# NOTA: Requiere Node.js instalado y comando 'npx'
+GEMINI_USE_INTERACTIVE=false
+
+# ============================================================================
+# CONFIGURACIÓN AVANZADA (OPCIONAL)
+# ============================================================================
+
+# Número máximo de tareas concurrentes
+# MAX_CONCURRENT_TASKS=4
+
+# Adaptador por defecto a usar
+# DEFAULT_ADAPTER=gemini
+
+# Habilitar selección automática de modelos neuro-divergentes (true/false)
+# ENABLE_NEURAL_SELECTION=true
+
+# Habilitar aprendizaje adaptivo SAFLA (true/false)
+# ENABLE_ADAPTIVE_LEARNING=true
+
+# Threshold mínimo de calidad (0.0 - 1.0)
+# QUALITY_THRESHOLD=0.8
+
+# ============================================================================
+# INSTRUCCIONES DE USO
+# ============================================================================
+# 
+# 1. Crea un archivo llamado '.env' en el directorio raíz del proyecto
+# 
+# 2. Copia el contenido de este archivo al .env
+# 
+# 3. Edita .env y cambia 'tu_gemini_api_key_aqui' por tu API key real
+# 
+# 4. Ejecuta el programa:
+#    cargo run
+# 
+# 5. ¡Disfruta del poder de ruv-FANN + SAFLA + Gemini CLI! 🚀
+#
+# Para obtener una API key gratuita de Gemini:
+# - Ve a: https://makersuite.google.com/app/apikey
+# - Inicia sesión con tu cuenta de Google
+# - Crea una nueva API key
+# - Cópiala y pégala en el archivo .env
+#
+# ============================================================================ 

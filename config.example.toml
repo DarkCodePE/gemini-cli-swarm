@@ -1,0 +1,159 @@
+# ============================================================================
+# CONFIGURACIÓN DEL ADAPTADOR GEMINI CLI - ruv-FANN + SAFLA + SPARC
+# ============================================================================
+# Archivo de configuración de ejemplo para el sistema completo
+# Copia este archivo a config.toml y personaliza según tus necesidades
+# ============================================================================
+
+[gemini]
+# API Key de Gemini (REQUERIDO)
+# Obtén tu key en: https://makersuite.google.com/app/apikey
+api_key = "tu_gemini_api_key_aqui"
+
+# Timeout para llamadas a API (segundos)
+timeout_seconds = 30
+
+# Número máximo de intentos por tarea
+max_attempts = 3
+
+# Habilitar verificación de código generado
+enable_verification = true
+
+[vertex_ai]
+# Configuración opcional para Vertex AI (uso empresarial)
+project_id = "tu-proyecto-gcp"
+location = "us-central1"
+
+[swarm]
+# Número máximo de tareas concurrentes
+max_concurrent_tasks = 4
+
+# Adaptador por defecto a usar
+default_adapter = "gemini"
+
+# Habilitar selección automática de modelos neuro-divergentes
+enable_neural_selection = true
+
+# Habilitar aprendizaje adaptivo SAFLA
+enable_adaptive_learning = true
+
+# Habilitar monitoreo de performance en tiempo real
+performance_monitoring = true
+
+[quality]
+# Threshold mínimo de calidad (0.0 - 1.0)
+quality_threshold = 0.8
+
+# Threshold de confidence score para aceptar respuestas
+confidence_threshold = 0.7
+
+# Habilitar compilación automática para verificar código Rust
+auto_compile_check = true
+
+[logging]
+# Nivel de logging (error, warn, info, debug, trace)
+level = "info"
+
+# Formato de logging
+format = "pretty"
+
+# Archivo de logs (opcional)
+# file = "/tmp/gemini_adapter.log"
+
+[wasm]
+# Configuración para compilación WebAssembly
+memory_size = 67108864  # 64MB
+enable_simd = true
+optimize = true
+
+[models]
+# Configuración de modelos neuro-divergentes
+
+[models.lstm]
+hidden_size = 128
+num_layers = 2
+dropout = 0.2
+
+[models.nbeats]
+forecast_length = 24
+backcast_length = 168
+hidden_layer_units = 512
+
+[models.transformer]
+d_model = 512
+num_heads = 8
+num_layers = 6
+max_seq_length = 2048
+
+[models.custom_fann]
+layers = [10, 15, 10, 1]
+activation = "SigmoidSymmetric"
+learning_rate = 0.01
+
+[advanced]
+# Configuraciones avanzadas
+
+# URL base personalizada (si usas proxy)
+# custom_api_base_url = "https://tu-proxy.com/api"
+
+# Habilitar modo debug
+debug_mode = false
+
+# Habilitar métricas detalladas
+detailed_metrics = true
+
+# Intervalo de guardado de estadísticas (segundos)
+stats_save_interval = 60
+
+# Directorio para archivos temporales
+temp_dir = "/tmp"
+
+[security]
+# Configuración de seguridad
+
+# Habilitar validación estricta de SSL
+strict_ssl = true
+
+# User-Agent para peticiones HTTP
+user_agent = "Gemini-CLI-Adapter/1.0"
+
+# Rate limiting (peticiones por minuto)
+rate_limit_rpm = 60
+
+[cache]
+# Configuración de cache
+
+# Habilitar cache de respuestas
+enable = true
+
+# TTL del cache en segundos
+ttl_seconds = 3600
+
+# Directorio para cache
+cache_dir = ".cache"
+
+# ============================================================================
+# INSTRUCCIONES DE USO
+# ============================================================================
+#
+# 1. Copia este archivo: cp config.example.toml config.toml
+# 2. Edita config.toml con tus valores reales
+# 3. El sistema cargará automáticamente la configuración
+#
+# Variables de entorno (tienen prioridad sobre este archivo):
+# - GEMINI_API_KEY: API key de Gemini
+# - GOOGLE_CLOUD_PROJECT: Proyecto GCP para Vertex AI
+# - GOOGLE_CLOUD_LOCATION: Región GCP
+# - RUST_LOG: Nivel de logging
+#
+# Para uso con Vertex AI:
+# 1. Configura project_id y location en [vertex_ai]
+# 2. Instala gcloud CLI y autentica
+# 3. El sistema usará automáticamente Vertex AI
+#
+# Para desarrollo:
+# - Cambia logging.level a "debug"
+# - Habilita advanced.debug_mode
+# - Configura advanced.detailed_metrics
+#
+# ============================================================================ 
