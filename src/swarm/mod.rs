@@ -8,11 +8,10 @@
 // ============================================================================
 
 use crate::{
-    CodeGenerationFlow, CodeGenerationResult, FlowError, ThinkingFlow, ThinkingResult, ThinkingMode,
+    CodeGenerationFlow, CodeGenerationResult, FlowError, ThinkingResult, ThinkingMode,
     adapters::{AdapterConfig, create_adapter},
-    neuro_divergent::{ModelCatalog, ModelSpec},
-    cost_optimizer::{CostOptimizer, CostConstraints, ModelChoice, TaskComplexity, analyze_task_complexity, PriorityLevel, UsageRecord},
-    performance::{PerformanceMonitor, PerformanceMetrics, AlertThresholds, PerformanceReport},
+    cost_optimizer::{CostOptimizer, TaskComplexity, analyze_task_complexity, ModelChoice, CostConstraints, PriorityLevel, UsageRecord},
+    performance::{PerformanceMonitor, AlertThresholds, PerformanceMetrics, PerformanceReport},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -375,7 +374,7 @@ impl SwarmOrchestrator {
     }
 
     /// Calcula cuánto dinero se ahorró vs el modelo más caro
-    fn calculate_cost_savings(&self, selected_model: &ModelChoice, result: &CodeGenerationResult) -> f64 {
+    fn calculate_cost_savings(&self, _selected_model: &ModelChoice, result: &CodeGenerationResult) -> f64 {
         if let Some(cost_estimate) = &result.cost_estimate {
             // Comparar con Claude 3.7 Sonnet (el más caro)
             let expensive_model_cost = (cost_estimate.input_tokens as f64 / 1_000_000.0) * 3.00 +
@@ -388,7 +387,7 @@ impl SwarmOrchestrator {
     }
 
     /// Registra el uso para aprendizaje futuro del sistema
-    fn record_usage_for_learning(&mut self, task: &Task, model: &ModelChoice, result: &CodeGenerationResult, success: bool, execution_time: u64) {
+    fn record_usage_for_learning(&mut self, task: &Task, model: &ModelChoice, result: &CodeGenerationResult, success: bool, _execution_time: u64) {
         let task_complexity = analyze_task_complexity(&task.description);
         
         let usage_record = UsageRecord {

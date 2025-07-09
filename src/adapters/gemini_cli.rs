@@ -13,7 +13,6 @@ use crate::{
     cost_optimizer::ModelChoice,
 };
 use async_trait::async_trait;
-use futures::future::BoxFuture;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};

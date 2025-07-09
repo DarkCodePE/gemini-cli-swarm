@@ -39,7 +39,7 @@ async fn handle_neural_list() -> Result<(), Box<dyn Error + Send + Sync>> {
             ModelType::Transformer { d_model, num_heads, num_layers, max_seq_length } => {
                 println!("   🔧 Type: Transformer (d_model: {}, heads: {}, layers: {}, max_seq: {})", d_model, num_heads, num_layers, max_seq_length);
             }
-            ModelType::CustomFANN { layers, activation, learning_rate } => {
+            ModelType::CustomFANN { layers, activation: _, learning_rate } => {
                 println!("   🔧 Type: Custom FANN (layers: {:?}, lr: {})", layers, learning_rate);
             }
             ModelType::TCN { num_channels, kernel_size, dropout } => {

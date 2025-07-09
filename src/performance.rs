@@ -123,7 +123,7 @@ impl PerformanceMonitor {
 
     /// Inicia el tracking de una nueva tarea
     pub fn start_task(&mut self, task_id: String, model: ModelChoice, complexity_score: f64) -> TaskTracker {
-        let task = TaskExecution {
+        let _task = TaskExecution {
             id: task_id.clone(),
             start_time: SystemTime::now(),
             end_time: None,

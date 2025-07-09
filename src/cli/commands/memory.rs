@@ -20,7 +20,7 @@ pub async fn handle_memory_command(cmd: MemoryCommands) -> Result<(), Box<dyn Er
             print_info("Available namespaces:");
             println!("   • default (0 entries)");
         }
-        MemoryCommands::Store { key, value, namespace } => {
+        MemoryCommands::Store { key, value: _, namespace } => {
             print_success(&format!("Stored '{}' in namespace '{}'", key, namespace));
         }
         MemoryCommands::Query { query, namespace } => {

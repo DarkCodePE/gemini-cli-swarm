@@ -13,7 +13,7 @@ use colored::*;
 use std::process;
 
 // Importar módulos principales
-use enjambre::cli::{Cli, Commands, print_banner, print_quick_help};
+use enjambre::cli::{Cli, Commands, print_banner};
 use enjambre::cli::commands::{
     execute_swarm_command,
     handle_init,
@@ -73,19 +73,19 @@ async fn main() {
             handle_tools_command(tools_cmd).await
         }
         
-        Commands::Performance(perf_cmd) => {
+        Commands::Performance(_perf_cmd) => {
             handle_performance_command().await  // Simplificado para v2.0
         }
         
-        Commands::Workflow(workflow_cmd) => {
+        Commands::Workflow(_workflow_cmd) => {
             handle_workflow_command().await  // Simplificado para v2.0
         }
         
-        Commands::Test(test_cmd) => {
+        Commands::Test(_test_cmd) => {
             handle_test_command().await  // Simplificado para v2.0
         }
         
-        Commands::Config(config_cmd) => {
+        Commands::Config(_config_cmd) => {
             handle_config_command().await  // Simplificado para v2.0
         }
     };

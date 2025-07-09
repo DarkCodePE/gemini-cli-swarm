@@ -10,7 +10,6 @@ use crate::{
     ThinkingMode,
 };
 use chrono;
-use std::fs;
 use clap::Args;
 use colored::*;
 use indicatif::{ProgressBar, ProgressStyle};
