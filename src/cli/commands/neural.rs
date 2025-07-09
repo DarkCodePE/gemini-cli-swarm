@@ -67,7 +67,8 @@ async fn handle_neural_list() -> Result<(), Box<dyn Error + Send + Sync>> {
         if caps.gpu_optimized { capability_flags.push("GPU Optimized".bright_yellow()); }
         
         if !capability_flags.is_empty() {
-            println!("   ⚡ Capabilities: {}", capability_flags.join(", "));
+            let flags_str: Vec<String> = capability_flags.into_iter().map(|s| s.to_string()).collect();
+            println!("   ⚡ Capabilities: {}", flags_str.join(", "));
         }
         
         println!();

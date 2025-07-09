@@ -104,32 +104,9 @@ pub enum Commands {
     #[command(subcommand, about = "🔄 Workflow automation and pipeline management")]
     Workflow(WorkflowCommands),
 
-    /// 🎯 Swarm Commands - Direct Task Execution
-    #[command(about = "🎯 Execute tasks using intelligent swarm coordination")]
-    Swarm {
-        /// Task description
-        task: String,
-        
-        /// Number of agents to spawn  
-        #[arg(short, long, default_value = "4")]
-        agents: usize,
-        
-        /// Coordination strategy
-        #[arg(short, long, default_value = "intelligent")]
-        strategy: String,
-        
-        /// Use Gemini CLI instead of API
-        #[arg(long)]
-        gemini: bool,
-        
-        /// Memory namespace
-        #[arg(long)]
-        memory_namespace: Option<String>,
-        
-        /// Enable parallel execution
-        #[arg(long)]
-        parallel: bool,
-    },
+    /// 🎯 Swarm Commands - Optimized Task Execution with Cost Management
+    #[command(about = "🎯 Execute tasks with cost optimization and performance monitoring")]
+    Swarm(crate::cli::commands::swarm::SwarmArgs),
 
     /// 🧪 Test Commands - System Testing
     #[command(subcommand, about = "🧪 Test system components and capabilities")]

@@ -1,51 +1,125 @@
 // ============================================================================
-// ENJAMBRE v2.0.0 Alpha - Gemini CLI Orchestration Platform
+// ENJAMBRE CLI v2.0 - Sistema de Agentes Autónomos con Optimizaciones Avanzadas
 // ============================================================================
-// Revolutionary AI swarm coordination system powered by SAFLA + SPARC methodology
-// with 27+ neural models, 87+ tools, and hive-mind intelligence.
+// Nuevo sistema CLI con:
+// - Cost Optimization: Selección inteligente de modelos para optimizar costo/rendimiento
+// - Performance Monitoring: Métricas en tiempo real y comparación con Claude-Flow
+// - Thinking Mode: Soporte para modelos con capacidades de razonamiento
+// - Enhanced UX: Interfaz mejorada con progress bars, colores y reportes detallados
 // ============================================================================
 
 use clap::Parser;
 use colored::*;
-use dotenv::dotenv;
 use std::process;
 
-mod adapters;
-mod cli;
-mod neuro_divergent;
-mod swarm;
-
-use crate::cli::{print_banner, print_quick_help, Cli};
+// Importar módulos principales
+use enjambre::cli::{Cli, Commands, print_banner, print_quick_help};
+use enjambre::cli::commands::{
+    execute_swarm_command,
+    handle_init,
+    handle_hive_mind_command,
+    handle_neural_command,
+    handle_memory_command,
+    handle_tools_command,
+    handle_performance_command,
+    handle_workflow_command,
+    handle_test_command,
+    handle_config_command,
+};
 
 #[tokio::main]
 async fn main() {
-    // Load environment variables from .env file if present
-    let _ = dotenv();
+    // Configurar logging básico
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("info")
+    ).init();
 
-    // Parse command line arguments
+    // Parsear argumentos CLI
     let cli = Cli::parse();
 
-    // Print banner for main commands
-    if !matches!(cli.command, cli::Commands::Config(_)) {
-        print_banner();
+    // Configurar verbose logging si está habilitado
+    if cli.verbose {
+        env_logger::Builder::from_env(
+            env_logger::Env::default().default_filter_or("debug")
+        ).init();
     }
 
-    // Run the command
-    if let Err(e) = cli::commands::run_command(cli).await {
-        eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
-        
-        // Show help if it's a basic error
-        if e.to_string().contains("API key") {
-            println!();
-            println!("{}", "💡 Quick Fix:".bright_yellow().bold());
-            println!("  1. Get your API key: {}", "https://makersuite.google.com/app/apikey".bright_cyan());
-            println!("  2. Set it: {} export GEMINI_API_KEY=\"your_key_here\"", "$".bright_blue());
-            println!("  3. Or create .env file with: GEMINI_API_KEY=your_key_here");
-            println!("  4. Run: {} enjambre init --force", "$".bright_blue());
-            println!();
+    // Mostrar banner principal
+    print_banner();
+
+    // Ejecutar comando correspondiente
+    let result = match cli.command {
+        Commands::Init { force, hive_mind, neural_enhanced, path } => {
+            handle_init(force, hive_mind, neural_enhanced, path).await
         }
         
-        print_quick_help();
-        process::exit(1);
+        Commands::Swarm(swarm_args) => {
+            execute_swarm_command(swarm_args).await
+        }
+        
+        Commands::HiveMind(hive_cmd) => {
+            handle_hive_mind_command(hive_cmd).await
+        }
+        
+        Commands::Neural(neural_cmd) => {
+            handle_neural_command(neural_cmd).await
+        }
+        
+        Commands::Memory(memory_cmd) => {
+            handle_memory_command(memory_cmd).await
+        }
+        
+        Commands::Tools(tools_cmd) => {
+            handle_tools_command(tools_cmd).await
+        }
+        
+        Commands::Performance(perf_cmd) => {
+            handle_performance_command().await  // Simplificado para v2.0
+        }
+        
+        Commands::Workflow(workflow_cmd) => {
+            handle_workflow_command().await  // Simplificado para v2.0
+        }
+        
+        Commands::Test(test_cmd) => {
+            handle_test_command().await  // Simplificado para v2.0
+        }
+        
+        Commands::Config(config_cmd) => {
+            handle_config_command().await  // Simplificado para v2.0
+        }
+    };
+
+    // Manejar resultado y mostrar ayuda si es necesario
+    match result {
+        Ok(_) => {
+            // Éxito - no mostrar nada adicional
+        }
+        Err(e) => {
+            eprintln!();
+            eprintln!("{} {}", "❌ Error:".bright_red().bold(), e.to_string().red());
+            eprintln!();
+            
+            // Mostrar ayuda contextual para errores comunes
+            if e.to_string().contains("API") || e.to_string().contains("key") {
+                eprintln!("{}", "💡 Ayuda:".bright_yellow().bold());
+                eprintln!("   Configure su API key de Gemini:");
+                eprintln!("   export GEMINI_API_KEY=\"su_api_key_aqui\"");
+                eprintln!();
+                eprintln!("   O use el comando de configuración:");
+                eprintln!("   enjambre config show");
+            } else if e.to_string().contains("connection") || e.to_string().contains("network") {
+                eprintln!("{}", "💡 Ayuda:".bright_yellow().bold());
+                eprintln!("   Verifique su conexión a internet");
+                eprintln!("   Pruebe: enjambre test gemini");
+            } else {
+                eprintln!("{}", "💡 Ayuda:".bright_yellow().bold());
+                eprintln!("   Use 'enjambre --help' para ver todos los comandos disponibles");
+                eprintln!("   Use 'enjambre <comando> --help' para ayuda específica");
+            }
+            
+            eprintln!();
+            process::exit(1);
+        }
     }
 }

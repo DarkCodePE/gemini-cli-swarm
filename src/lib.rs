@@ -30,6 +30,22 @@ pub trait CodeGenerationFlow: Send + Sync {
 }
 
 // ============================================================================
+// NUEVO TRAIT: ThinkingFlow para modelos con capacidades de razonamiento
+// ============================================================================
+
+#[async_trait]
+pub trait ThinkingFlow: CodeGenerationFlow {
+    /// Ejecuta con razonamiento visible paso a paso
+    async fn execute_with_thinking(&self, problem: &str) -> Result<ThinkingResult, FlowError>;
+    
+    /// Obtiene los pasos de razonamiento del último análisis
+    fn get_reasoning_steps(&self) -> Vec<ReasoningStep>;
+    
+    /// Configura el modo de pensamiento
+    fn set_thinking_mode(&mut self, mode: ThinkingMode);
+}
+
+// ============================================================================
 // ESTRUCTURAS DE DATOS COMUNES
 // ============================================================================
 
@@ -41,6 +57,44 @@ pub struct CodeGenerationResult {
     pub attempts_made: u32,
     pub execution_time_ms: u64,
     pub verification_passed: bool,
+    pub cost_estimate: Option<CostEstimate>,
+    pub model_used: Option<String>,
+}
+
+// ============================================================================
+// NUEVAS ESTRUCTURAS PARA THINKING Y PERFORMANCE
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThinkingResult {
+    pub reasoning_trace: Vec<String>,
+    pub intermediate_conclusions: Vec<String>,
+    pub final_result: CodeGenerationResult,
+    pub confidence_evolution: Vec<f64>,
+    pub thinking_time_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReasoningStep {
+    pub step_number: usize,
+    pub description: String,
+    pub confidence: f64,
+    pub intermediate_result: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ThinkingMode {
+    Standard,
+    Extended { max_thinking_time_ms: u64 },
+    StepByStep { show_intermediate: bool },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CostEstimate {
+    pub input_tokens: u32,
+    pub output_tokens: u32,
+    pub estimated_cost_usd: f64,
+    pub model_used: String,
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +115,9 @@ pub struct AdapterCapabilities {
     pub max_context_tokens: u32,
     pub supports_function_calling: bool,
     pub supports_code_execution: bool,
+    pub supports_thinking: bool,
+    pub cost_per_million_input: f64,
+    pub cost_per_million_output: f64,
 }
 
 // ============================================================================
@@ -75,6 +132,8 @@ pub enum FlowError {
     InvalidPrompt(String),
     NetworkError(String),
     MaxAttemptsReached(u32),
+    CostLimitExceeded(f64),
+    ThinkingModeNotSupported,
 }
 
 impl fmt::Display for FlowError {
@@ -87,6 +146,12 @@ impl fmt::Display for FlowError {
             FlowError::NetworkError(msg) => write!(f, "Error de red: {}", msg),
             FlowError::MaxAttemptsReached(attempts) => {
                 write!(f, "Máximo de intentos alcanzado: {}", attempts)
+            }
+            FlowError::CostLimitExceeded(limit) => {
+                write!(f, "Límite de costo excedido: ${:.4}", limit)
+            }
+            FlowError::ThinkingModeNotSupported => {
+                write!(f, "Modo thinking no soportado por este modelo")
             }
         }
     }
@@ -101,6 +166,8 @@ impl Error for FlowError {}
 pub mod adapters;
 pub mod neuro_divergent;
 pub mod swarm;
+pub mod cost_optimizer;
+pub mod performance;
 
 // CLI module is only available when not compiling to WASM
 #[cfg(not(target_arch = "wasm32"))]

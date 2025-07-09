@@ -1,8 +1,10 @@
-use super::{print_success, print_info, create_orchestrator};
+use super::{print_success, print_info};
+use crate::swarm::{SwarmOrchestrator, SwarmConfig};
 use crate::cli::HiveMindCommands;
 use crate::swarm::TaskBuilder;
 use colored::*;
 use std::error::Error;
+use std::collections::HashMap;
 
 pub async fn handle_hive_mind_command(cmd: HiveMindCommands) -> Result<(), Box<dyn Error + Send + Sync>> {
     match cmd {
@@ -54,7 +56,25 @@ async fn handle_spawn(
     
     println!();
     
-    let mut orchestrator = create_orchestrator().await?;
+    let config = SwarmConfig::default();
+    let mut orchestrator = SwarmOrchestrator::new(config);
+    
+    // Inicializar con adaptadores por defecto
+    let mut adapter_configs = HashMap::new();
+    if use_gemini {
+        adapter_configs.insert("gemini".to_string(), crate::adapters::AdapterConfig {
+            api_key: std::env::var("GEMINI_API_KEY").unwrap_or_default(),
+            base_url: None,
+            timeout_seconds: 30,
+            max_attempts: 3,
+            enable_verification: true,
+            project_id: None,
+            location: None,
+        });
+    }
+    
+    orchestrator.initialize(adapter_configs).await?;
+    
     let swarm_task = TaskBuilder::code_generation(&task);
     
     print_info("🐝 Deploying swarm...");
