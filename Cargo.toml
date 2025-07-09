@@ -2,95 +2,86 @@
 name = "enjambre"
 version = "0.3.0"
 edition = "2021"
+description = "Sistema de Agentes Autónomos con Optimizaciones Avanzadas y Herramientas Nativas"
 authors = ["Enjambre Team"]
-description = "Sistema de agentes autónomos con optimización de costos y monitoreo de performance"
 license = "MIT"
-repository = "https://github.com/user/enjambre"
+repository = "https://github.com/enjambre/enjambre"
+keywords = ["ai", "agents", "gemini", "automation", "tools"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "enjambre"
 path = "src/main.rs"
 
 [dependencies]
-# Core async runtime
+# Core dependencies
+clap = { version = "4.0", features = ["derive", "env"] }
 tokio = { version = "1.0", features = ["full"] }
-async-trait = "0.1"
-
-# HTTP client and web functionality
-reqwest = { version = "0.11", features = ["json"] }
-hyper = "0.14"
-
-# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-toml = "0.8"
-
-# UUID and time handling
-uuid = { version = "1.0", features = ["v4"] }
-chrono = { version = "0.4", features = ["serde"] }
-
-# Error handling
-anyhow = "1.0"
-thiserror = "1.0"
-
-# Logging
+async-trait = "0.1"
 log = "0.4"
 env_logger = "0.10"
+thiserror = "1.0"
 
-# File I/O and path manipulation
-tokio-fs = "0.1"
-
-# CLI Framework and User Experience
-clap = { version = "4.0", features = ["derive", "color", "suggestions"], optional = true }
-dialoguer = { version = "0.11", features = ["password", "completion"], optional = true }
-indicatif = { version = "0.17", features = ["rayon"], optional = true }
-colored = { version = "2.0", optional = true }
-console = { version = "0.15", optional = true }
-
-# Configuration and data storage
-dirs = "5.0"
-config = "0.14"
-
-# Performance and monitoring
-metrics = { version = "0.22", optional = true }
-metrics-exporter-prometheus = { version = "0.13", optional = true }
-
-# Cost optimization and analytics  
-statistical = { version = "1.0", optional = true }
-plotters = { version = "0.3", optional = true }
-
-# Additional utilities
-regex = "1.0"
-lazy_static = "1.4"
-parking_lot = "0.12"
+# HTTP and networking
+reqwest = { version = "0.11", features = ["json", "stream"] }
 futures = "0.3"
 
-# Development dependencies
-[dev-dependencies]
+# UI and CLI enhancement
+colored = "2.0"
+indicatif = "0.17"
+dialoguer = "0.11"
+console = "0.15"
+
+# Configuration and data formats
+toml = "0.8"
+config = "0.14"
+json5 = "0.4"
+yaml-rust2 = "0.8"
+ron = "0.8"
+
+# File system and path manipulation
+dirs = "5.0"
 tempfile = "3.0"
-criterion = "0.5"
+pathdiff = "0.2"
+shell-words = "1.1"
 
-# Optional features
+# Time and scheduling  
+chrono = { version = "0.4", features = ["serde"] }
+
+# Neural networks and AI
+candle-core = { version = "0.6", optional = true }
+candle-nn = { version = "0.6", optional = true }
+candle-transformers = { version = "0.6", optional = true }
+
+# Performance and metrics
+metrics = "0.22"
+metrics-util = "0.16"
+metrics-exporter-prometheus = "0.13"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Tools system dependencies
+walkdir = "2.4"               # For file system traversal
+glob = "0.3"                  # For pattern matching
+regex = "1.10"                # For text processing
+base64 = "0.22"               # For encoding/decoding
+hex = "0.4"                   # For hex encoding
+url = "2.4"                   # For URL manipulation
+mime_guess = "2.0"            # For MIME type detection
+zip = "0.6"                   # For archive handling
+tar = "0.4"                   # For tar archives
+flate2 = "1.0"                # For compression
+csv = "1.3"                   # For CSV processing
+sysinfo = "0.30"              # For system information
+which = "5.0"                 # For finding executables
+
 [features]
-default = ["cli", "performance", "cost-optimization"]
-cli = ["clap", "dialoguer", "indicatif", "colored", "console"]
-performance = ["metrics", "metrics-exporter-prometheus"]
-cost-optimization = ["statistical"]
-visualization = ["plotters"]
-experimental = []
+default = ["neural"]
+neural = ["candle-core", "candle-nn", "candle-transformers"]
+tools-extended = []           # For extended tools catalog
 
-# Build optimizations
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-panic = "abort"
-
-[profile.dev]
-opt-level = 0
-debug = true
-
-# Benchmark profile
-[profile.bench]
-inherits = "release"
-debug = true
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile = "3.0"

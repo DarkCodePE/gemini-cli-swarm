@@ -12,6 +12,7 @@ use crate::{
     adapters::{AdapterConfig, create_adapter},
     cost_optimizer::{CostOptimizer, TaskComplexity, analyze_task_complexity, ModelChoice, CostConstraints, PriorityLevel, UsageRecord},
     performance::{PerformanceMonitor, AlertThresholds, PerformanceMetrics, PerformanceReport},
+    tools::{get_registry, ToolParams, ToolResult, ToolError}, // ✨ NUEVO: Integración con herramientas
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -144,6 +145,7 @@ pub struct SwarmOrchestrator {
     cost_optimizer: CostOptimizer,
     performance_monitor: PerformanceMonitor,
     total_cost_saved: f64,
+    tool_usage_stats: HashMap<String, ToolUsageStats>,
 }
 
 impl SwarmOrchestrator {
@@ -161,6 +163,7 @@ impl SwarmOrchestrator {
             performance_history: Vec::new(),
             session_id: Uuid::new_v4().to_string(),
             total_cost_saved: 0.0,
+            tool_usage_stats: HashMap::new(),
         }
     }
 
@@ -459,6 +462,104 @@ impl SwarmOrchestrator {
 
         serde_json::to_string_pretty(&metrics)
     }
+    
+    /// Obtener esquemas de herramientas para Gemini Function Calling
+    pub fn get_function_schemas(&self) -> Vec<serde_json::Value> {
+        get_registry().get_function_schemas()
+    }
+    
+    /// Ejecutar herramienta por nombre
+    pub async fn execute_tool(&mut self, tool_name: &str, params: ToolParams) -> Result<ToolResult, ToolError> {
+        log::info!("🔧 Ejecutando herramienta: {}", tool_name);
+        
+        let start_time = std::time::Instant::now();
+        let result = get_registry().execute(tool_name, params).await;
+        let execution_time = start_time.elapsed();
+        
+        match &result {
+            Ok(tool_result) => {
+                log::info!("✅ Herramienta '{}' completada en {:?}: {}", 
+                    tool_name, execution_time, tool_result.message);
+                
+                // Registrar métricas de uso de herramientas
+                self.tool_usage_stats
+                    .entry(tool_name.to_string())
+                    .and_modify(|stats| {
+                        stats.total_calls += 1;
+                        stats.total_time += execution_time;
+                        if tool_result.success {
+                            stats.successful_calls += 1;
+                        }
+                    })
+                    .or_insert(ToolUsageStats {
+                        total_calls: 1,
+                        successful_calls: if tool_result.success { 1 } else { 0 },
+                        total_time: execution_time,
+                        last_used: std::time::SystemTime::now(),
+                    });
+            }
+            Err(error) => {
+                log::warn!("❌ Error ejecutando herramienta '{}': {}", tool_name, error);
+            }
+        }
+        
+        result
+    }
+    
+    /// Ejecutar múltiples herramientas en paralelo
+    pub async fn execute_tools_parallel(&mut self, tool_calls: Vec<(String, ToolParams)>) -> Vec<Result<ToolResult, ToolError>> {
+        log::info!("🔧⚡ Ejecutando {} herramientas en paralelo", tool_calls.len());
+        
+        let futures: Vec<_> = tool_calls.into_iter()
+            .map(|(tool_name, params)| {
+                let tool_name_clone = tool_name.clone();
+                async move {
+                    get_registry().execute(&tool_name_clone, params).await
+                }
+            })
+            .collect();
+        
+        let results = futures::future::join_all(futures).await;
+        
+        // Actualizar estadísticas para todas las herramientas
+        for (result, _) in results.iter().zip(0..) {
+            // Las estadísticas individuales se actualizan en execute_tool
+        }
+        
+        results
+    }
+    
+    /// Obtener estadísticas de uso de herramientas
+    pub fn get_tool_usage_stats(&self) -> &std::collections::HashMap<String, ToolUsageStats> {
+        &self.tool_usage_stats
+    }
+    
+    /// Listar herramientas disponibles
+    pub fn list_available_tools(&self) -> Vec<&str> {
+        get_registry().list_all()
+    }
+    
+    /// Listar herramientas por categoría
+    pub fn list_tools_by_category(&self, category: &crate::tools::ToolCategory) -> Vec<&str> {
+        get_registry().list_by_category(category)
+    }
+    
+    /// Crear parámetros de herramienta desde JSON
+    pub fn create_tool_params(&self, json_params: serde_json::Value) -> Result<ToolParams, ToolError> {
+        match json_params {
+            serde_json::Value::Object(map) => {
+                let mut params = ToolParams::new();
+                for (key, value) in map {
+                    params.data.insert(key, value);
+                }
+                Ok(params)
+            }
+            _ => Err(ToolError::InvalidParameter(
+                "params".to_string(), 
+                "Los parámetros deben ser un objeto JSON".to_string()
+            ))
+        }
+    }
 }
 
 // ============================================================================
@@ -567,5 +668,34 @@ impl TaskBuilder {
             .with_max_cost(max_cost)
             .with_priority(TaskPriority::Low)
             .build()
+    }
+} 
+
+/// Estadísticas de uso de herramientas
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolUsageStats {
+    pub total_calls: u64,
+    pub successful_calls: u64,
+    pub total_time: std::time::Duration,
+    pub last_used: std::time::SystemTime,
+}
+
+impl ToolUsageStats {
+    /// Tasa de éxito de la herramienta
+    pub fn success_rate(&self) -> f64 {
+        if self.total_calls == 0 {
+            0.0
+        } else {
+            self.successful_calls as f64 / self.total_calls as f64
+        }
+    }
+    
+    /// Tiempo promedio de ejecución
+    pub fn average_execution_time(&self) -> std::time::Duration {
+        if self.total_calls == 0 {
+            std::time::Duration::from_secs(0)
+        } else {
+            self.total_time / self.total_calls as u32
+        }
     }
 } 

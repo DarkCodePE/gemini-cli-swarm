@@ -1,8 +1,5 @@
 // ============================================================================
-// ruv-FANN + SAFLA + SPARC - Adaptador Universal para LLMs
-// ============================================================================
-// Este módulo implementa la arquitectura modular de ruvnet para crear
-// adaptadores universales que funcionen con cualquier LLM (Gemini, Claude, etc.)
+// ENJAMBRE LIB v2.0 - Sistema de Agentes Autónomos con Herramientas Nativas
 // ============================================================================
 
 use async_trait::async_trait;
@@ -168,6 +165,8 @@ pub mod neuro_divergent;
 pub mod swarm;
 pub mod cost_optimizer;
 pub mod performance;
+pub mod cli;
+pub mod tools;  // ✨ NUEVO: Sistema de herramientas nativas
 
 // CLI module is only available when not compiling to WASM
 #[cfg(not(target_arch = "wasm32"))]
