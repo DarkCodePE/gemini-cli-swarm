@@ -165,7 +165,6 @@ pub mod neuro_divergent;
 pub mod swarm;
 pub mod cost_optimizer;
 pub mod performance;
-pub mod cli;
 pub mod tools;  // ✨ NUEVO: Sistema de herramientas nativas
 
 // CLI module is only available when not compiling to WASM

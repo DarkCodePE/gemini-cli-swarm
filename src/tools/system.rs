@@ -5,7 +5,7 @@
 use super::{Tool, ToolParams, ToolResult, ToolError, ToolCategory, RiskLevel, create_parameters_schema};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use sysinfo::{System, SystemExt, ProcessExt, DiskExt, NetworkExt, ComponentExt};
+use sysinfo::{System, Disks, Networks, Components};
 
 // ============================================================================
 // SYSTEM INFO TOOL
@@ -68,12 +68,12 @@ impl Tool for SystemInfoTool {
         
         // Información básica del sistema
         let os_info = OsInfo {
-            name: system.name().unwrap_or_default(),
-            version: system.os_version().unwrap_or_default(),
-            kernel_version: system.kernel_version().unwrap_or_default(),
-            hostname: system.host_name().unwrap_or_default(),
-            uptime: system.uptime(),
-            boot_time: system.boot_time(),
+            name: System::name().unwrap_or_default(),
+            version: System::os_version().unwrap_or_default(),
+            kernel_version: System::kernel_version().unwrap_or_default(),
+            hostname: System::host_name().unwrap_or_default(),
+            uptime: System::uptime(),
+            boot_time: System::boot_time(),
         };
         
         // Información de CPU
@@ -107,14 +107,15 @@ impl Tool for SystemInfoTool {
         
         // Información de discos
         if include_disks {
-            for disk in system.disks() {
+            let disks = Disks::new_with_refreshed_list();
+            for disk in &disks {
                 system_info.disks.push(DiskInfo {
                     name: disk.name().to_string_lossy().to_string(),
                     mount_point: disk.mount_point().to_string_lossy().to_string(),
                     total_space: disk.total_space(),
                     available_space: disk.available_space(),
                     used_space: disk.total_space() - disk.available_space(),
-                    file_system: String::from_utf8_lossy(disk.file_system()).to_string(),
+                    file_system: disk.file_system().to_string_lossy().to_string(),
                     is_removable: disk.is_removable(),
                 });
             }
@@ -122,7 +123,8 @@ impl Tool for SystemInfoTool {
         
         // Información de red
         if include_network {
-            for (interface_name, data) in system.networks() {
+            let networks = Networks::new_with_refreshed_list();
+            for (interface_name, data) in &networks {
                 system_info.network.push(NetworkInfo {
                     interface: interface_name.clone(),
                     received: data.received(),
@@ -154,7 +156,8 @@ impl Tool for SystemInfoTool {
         
         // Temperaturas de componentes
         if include_components {
-            for component in system.components() {
+            let components = Components::new_with_refreshed_list();
+            for component in &components {
                 system_info.components.push(ComponentInfo {
                     label: component.label().to_string(),
                     temperature: component.temperature(),

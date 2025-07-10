@@ -383,6 +383,7 @@ impl Tool for MemoryListTool {
                                             namespace_info.expired_entries += 1;
                                         }
                                         
+                                        let expired = memory_entry.is_expired(now);
                                         namespace_info.entries.push(EntryInfo {
                                             key: memory_entry.key,
                                             created_at: memory_entry.created_at,
@@ -391,7 +392,7 @@ impl Tool for MemoryListTool {
                                             access_count: memory_entry.access_count,
                                             tags: memory_entry.tags,
                                             size: file_size,
-                                            expired: memory_entry.is_expired(now),
+                                            expired,
                                         });
                                     }
                                 }

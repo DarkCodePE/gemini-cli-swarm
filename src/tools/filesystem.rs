@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 use glob::glob;
-use std::fs;
+
 use tokio::fs as async_fs;
 
 // ============================================================================
@@ -447,7 +447,7 @@ async fn get_file_info(path: &Path, _show_hidden: bool) -> Result<Option<FileInf
     let modified = metadata.modified()
         .ok()
         .and_then(|time| {
-            use std::time::{UNIX_EPOCH, SystemTime};
+            use std::time::UNIX_EPOCH;
             time.duration_since(UNIX_EPOCH)
                 .ok()
                 .map(|duration| {

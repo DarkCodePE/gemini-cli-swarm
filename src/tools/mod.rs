@@ -57,7 +57,7 @@ pub trait Tool: Send + Sync {
 }
 
 /// Categorías de herramientas
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ToolCategory {
     FileSystem,
     System,

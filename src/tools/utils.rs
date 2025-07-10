@@ -91,14 +91,16 @@ impl Tool for Base64Tool {
                 // Intentar convertir a texto UTF-8
                 let as_text = String::from_utf8(bytes.clone());
                 let as_hex = hex::encode(&bytes);
+                let is_valid_utf8 = as_text.is_ok();
+                let output_text = as_text.unwrap_or_else(|_| "[Datos binarios no UTF-8]".to_string());
                 
                 serde_json::json!({
                     "operation": "decode",
                     "input": input,
                     "output_bytes": bytes.len(),
-                    "output_text": as_text.unwrap_or_else(|_| "[Datos binarios no UTF-8]".to_string()),
+                    "output_text": output_text,
                     "output_hex": as_hex,
-                    "is_valid_utf8": as_text.is_ok()
+                    "is_valid_utf8": is_valid_utf8
                 })
             }
             _ => {
@@ -312,6 +314,7 @@ impl Tool for UrlTool {
                 let query: Option<String> = params.get_optional("query")?;
                 
                 let mut url = format!("{}://{}{}", scheme, host, path);
+                let query_copy = query.clone();
                 if let Some(q) = query {
                     url.push('?');
                     url.push_str(&q);
@@ -324,7 +327,7 @@ impl Tool for UrlTool {
                         "scheme": scheme,
                         "host": host,
                         "path": path,
-                        "query": query
+                        "query": query_copy
                     }
                 })
             }
@@ -563,17 +566,15 @@ mod urlencoding {
     
     pub fn decode(input: &str) -> Result<String, Box<dyn std::error::Error>> {
         let mut result = String::new();
-        let mut chars = input.chars();
+        let mut chars = input.chars().peekable();
         
         while let Some(c) = chars.next() {
             if c == '%' {
-                let hex: String = chars.take(2).collect();
-                if hex.len() == 2 {
-                    let byte = u8::from_str_radix(&hex, 16)?;
-                    result.push(byte as char);
-                } else {
-                    return Err("Invalid URL encoding".into());
-                }
+                let first = chars.next().ok_or("Invalid URL encoding")?;
+                let second = chars.next().ok_or("Invalid URL encoding")?;
+                let hex = format!("{}{}", first, second);
+                let byte = u8::from_str_radix(&hex, 16)?;
+                result.push(byte as char);
             } else {
                 result.push(c);
             }
