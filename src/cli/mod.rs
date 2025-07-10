@@ -297,7 +297,7 @@ pub enum ToolsCommands {
     #[command(about = "📋 List all 87+ available tools")]
     List {
         /// Filter by category
-        #[arg(short, long)]
+        #[arg(short = 't', long)]
         category: Option<String>,
     },
     

@@ -187,7 +187,7 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         let adapter_config = AdapterConfig {
             api_key,
             base_url: None,
-            timeout_seconds: 30,
+            timeout_seconds: 120, // Aumentado de 30 a 120 segundos para mejor estabilidad
             max_attempts: 3,
             enable_verification: true,
             project_id: std::env::var("GOOGLE_PROJECT_ID").ok(),

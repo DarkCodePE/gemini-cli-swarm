@@ -19,31 +19,15 @@ impl GeminiProcessManager {
     pub fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         log::info!("🚀 Iniciando Gemini CLI en modo interactivo...");
         
-        // Intentar ejecutar gemini CLI
-        let process = Command::new("npx")
-            .arg("@google/gemini-cli")
-            .arg("--interactive")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Error iniciando Gemini CLI: {}. Asegúrate de tener Node.js instalado.", e))?;
-
-        log::info!("✅ Proceso Gemini CLI iniciado con PID: {}", process.id());
-
+        // Crear proceso Gemini CLI - usaremos modo prompt no interactivo
+        // Nota: No iniciamos el proceso aquí, lo haremos por comando individual
         let manager = Self {
-            process: Arc::new(Mutex::new(Some(process))),
-            is_ready: Arc::new(Mutex::new(false)),
+            process: Arc::new(Mutex::new(None)),
+            is_ready: Arc::new(Mutex::new(true)), // Siempre listo en modo no interactivo
             output_buffer: Arc::new(Mutex::new(String::new())),
         };
 
-        // Iniciar el monitor de salida en un hilo separado
-        manager.start_output_monitor()?;
-        
-        // Esperar a que el CLI esté listo
-        manager.wait_for_ready(Duration::from_secs(30))?;
-        
-        log::info!("🎯 Gemini CLI listo para recibir comandos");
+        log::info!("✅ Gemini CLI configurado en modo no interactivo");
         Ok(manager)
     }
 
@@ -134,25 +118,22 @@ impl GeminiProcessManager {
         Err("Timeout esperando a que Gemini CLI esté listo".into())
     }
 
-    /// Ejecuta un comando en el CLI interactivo
+    /// Ejecuta un comando usando Gemini CLI en modo no interactivo
     pub async fn execute_command(&self, command: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        log::info!("💬 Enviando comando a Gemini CLI: {}", command.chars().take(50).collect::<String>() + "...");
+        log::info!("💬 Ejecutando comando en Gemini CLI: {}", command.chars().take(50).collect::<String>() + "...");
         
         // Crear canales para comunicación asíncrona
         let (tx, rx) = oneshot::channel();
-        
-        // Enviar comando en un hilo separado
-        let process_clone = Arc::clone(&self.process);
-        let output_buffer_clone = Arc::clone(&self.output_buffer);
         let command_owned = command.to_string();
         
+        // Ejecutar Gemini CLI en modo no interactivo con --prompt
         thread::spawn(move || {
-            let result = Self::send_command_sync(&process_clone, &command_owned, &output_buffer_clone);
+            let result = Self::execute_gemini_command(&command_owned);
             let _ = tx.send(result);
         });
         
-        // Esperar respuesta con timeout
-        match tokio::time::timeout(Duration::from_secs(60), rx).await {
+        // Esperar respuesta con timeout aumentado
+        match tokio::time::timeout(Duration::from_secs(120), rx).await {
             Ok(Ok(response)) => {
                 log::info!("✅ Comando ejecutado exitosamente");
                 Ok(response?)
@@ -168,35 +149,34 @@ impl GeminiProcessManager {
         }
     }
 
-    /// Envía un comando de manera síncrona
-    fn send_command_sync(
-        process: &Arc<Mutex<Option<Child>>>,
-        command: &str,
-        output_buffer: &Arc<Mutex<String>>,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        // Limpiar buffer de salida
-        if let Ok(mut buffer) = output_buffer.lock() {
-            buffer.clear();
-        }
-
-        // Enviar comando
-        if let Ok(mut process_guard) = process.lock() {
-            if let Some(ref mut process) = *process_guard {
-                if let Some(ref mut stdin) = process.stdin {
-                    writeln!(stdin, "{}", command)?;
-                    stdin.flush()?;
-                }
-            }
-        }
-
-        // Esperar respuesta (simulado)
-        thread::sleep(Duration::from_secs(2));
+    /// Ejecuta un comando usando Gemini CLI en modo no interactivo
+    fn execute_gemini_command(command: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        log::debug!("🔧 Ejecutando: npx @google/gemini-cli --prompt '{}'", command.chars().take(50).collect::<String>());
         
-        // Leer respuesta del buffer
-        if let Ok(buffer) = output_buffer.lock() {
-            Ok(buffer.clone())
+        // Ejecutar Gemini CLI con --prompt para modo no interactivo
+        let output = Command::new("npx")
+            .arg("@google/gemini-cli")
+            .arg("--prompt")
+            .arg(command)
+            .arg("--yolo") // Auto-aceptar acciones para evitar confirmaciones
+            .output()
+            .map_err(|e| format!("Error ejecutando Gemini CLI: {}. Asegúrate de tener Node.js instalado.", e))?;
+
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let result = stdout.trim().to_string();
+            
+            log::debug!("📤 Respuesta de Gemini CLI ({} chars): {}...", 
+                result.len(), 
+                result.chars().take(100).collect::<String>()
+            );
+            
+            Ok(result)
         } else {
-            Ok("Comando enviado pero no se pudo leer la respuesta".to_string())
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let error_msg = format!("Gemini CLI falló: {}", stderr);
+            log::error!("❌ {}", error_msg);
+            Err(error_msg.into())
         }
     }
 
