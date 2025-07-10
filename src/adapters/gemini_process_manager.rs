@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -9,7 +9,7 @@ use regex::Regex;
 /// Gestor de procesos para ejecutar Gemini CLI de manera interactiva
 /// Inspirado en el GeminiProcessManager de Claude Code Flow
 pub struct GeminiProcessManager {
-    process: Arc<Mutex<Option<Child>>>,
+    process: Arc<Mutex<Option<std::process::Child>>>,
     is_ready: Arc<Mutex<bool>>,
     output_buffer: Arc<Mutex<String>>,
 }
@@ -151,16 +151,23 @@ impl GeminiProcessManager {
 
     /// Ejecuta un comando usando Gemini CLI en modo no interactivo
     fn execute_gemini_command(command: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        log::debug!("🔧 Ejecutando: npx @google/gemini-cli --prompt '{}'", command.chars().take(50).collect::<String>());
+        log::debug!("🔧 Ejecutando: npx @google/gemini-cli --prompt \"{}\"", command.chars().take(80).collect::<String>());
+
+        // En Windows, es más robusto llamar a `npx.cmd` directamente.
+        let npx_executable = if cfg!(target_os = "windows") {
+            "npx.cmd"
+        } else {
+            "npx"
+        };
         
         // Ejecutar Gemini CLI con --prompt para modo no interactivo
-        let output = Command::new("npx")
+        let output = Command::new(npx_executable)
             .arg("@google/gemini-cli")
             .arg("--prompt")
-            .arg(command)
+            .arg(command) // Pasamos el prompt como un solo argumento, Rust se encarga de las comillas.
             .arg("--yolo") // Auto-aceptar acciones para evitar confirmaciones
             .output()
-            .map_err(|e| format!("Error ejecutando Gemini CLI: {}. Asegúrate de tener Node.js instalado.", e))?;
+            .map_err(|e| format!("Error ejecutando Gemini CLI ({}): {}. Asegúrate de que Node.js esté instalado y en el PATH.", npx_executable, e))?;
 
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -174,7 +181,7 @@ impl GeminiProcessManager {
             Ok(result)
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            let error_msg = format!("Gemini CLI falló: {}", stderr);
+            let error_msg = format!("Gemini CLI falló con código [{}]: {}", output.status, stderr);
             log::error!("❌ {}", error_msg);
             Err(error_msg.into())
         }
