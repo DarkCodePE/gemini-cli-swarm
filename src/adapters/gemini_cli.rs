@@ -185,6 +185,7 @@ impl CodeGenerationFlow for GeminiCLIFlow {
                 verification_passed: true,
                 cost_estimate: Some(cost_estimate),
                 model_used: Some(format!("{:?}", self.model_choice)),
+                metrics: Default::default(),
             });
         }
 
@@ -239,6 +240,7 @@ impl CodeGenerationFlow for GeminiCLIFlow {
                     verification_passed: self.verify_code(&text).is_valid,
                     cost_estimate: Some(cost_estimate),
                     model_used: Some(format!("{:?}", self.model_choice)),
+                    metrics: Default::default(),
                 });
             } else {
                 return Err(FlowError::ApiError("Respuesta inesperada sin texto ni llamada a función".to_string()));
@@ -320,7 +322,6 @@ impl ThinkingFlow for GeminiCLIFlow {
         );
 
         let mut reasoning_steps = Vec::new();
-        let mut confidence_evolution = Vec::new();
 
         // Simular pasos de razonamiento (en implementación real, esto vendría del modelo)
         reasoning_steps.push(ReasoningStep {
@@ -344,7 +345,7 @@ impl ThinkingFlow for GeminiCLIFlow {
             intermediate_result: Some("Código base implementado".to_string()),
         });
 
-        confidence_evolution = reasoning_steps.iter().map(|step| step.confidence).collect();
+        let confidence_evolution = reasoning_steps.iter().map(|step| step.confidence).collect();
 
         // Ejecutar la tarea normal pero con el prompt mejorado
         let final_result = self.execute(&thinking_prompt).await?;

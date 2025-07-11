@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -9,7 +9,7 @@ use regex::Regex;
 /// Gestor de procesos para ejecutar Gemini CLI de manera interactiva
 /// Inspirado en el GeminiProcessManager de Claude Code Flow
 pub struct GeminiProcessManager {
-    process: Arc<Mutex<Option<std::process::Child>>>,
+    process: Arc<Mutex<Option<Child>>>,
     is_ready: Arc<Mutex<bool>>,
     output_buffer: Arc<Mutex<String>>,
 }
@@ -151,23 +151,39 @@ impl GeminiProcessManager {
 
     /// Ejecuta un comando usando Gemini CLI en modo no interactivo
     fn execute_gemini_command(command: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        log::debug!("🔧 Ejecutando: npx @google/gemini-cli --prompt \"{}\"", command.chars().take(80).collect::<String>());
-
-        // En Windows, es más robusto llamar a `npx.cmd` directamente.
-        let npx_executable = if cfg!(target_os = "windows") {
-            "npx.cmd"
-        } else {
-            "npx"
-        };
+        log::debug!("🔧 Ejecutando: npx @google/gemini-cli via stdin...");
         
-        // Ejecutar Gemini CLI con --prompt para modo no interactivo
-        let output = Command::new(npx_executable)
-            .arg("@google/gemini-cli")
-            .arg("--prompt")
-            .arg(command) // Pasamos el prompt como un solo argumento, Rust se encarga de las comillas.
-            .arg("--yolo") // Auto-aceptar acciones para evitar confirmaciones
-            .output()
-            .map_err(|e| format!("Error ejecutando Gemini CLI ({}): {}. Asegúrate de que Node.js esté instalado y en el PATH.", npx_executable, e))?;
+        // Configurar comando específico para Windows vs Unix/Linux/macOS
+        let mut cmd = if cfg!(target_os = "windows") {
+            // En Windows, ejecutar a través de cmd.exe para asegurar compatibilidad
+            let mut cmd = Command::new("cmd");
+            cmd.args(&["/C", "npx", "@google/gemini-cli", "--yolo"]);
+            cmd
+        } else {
+            // En sistemas Unix/Linux/macOS, usar npx directamente
+            let mut cmd = Command::new("npx");
+            cmd.arg("@google/gemini-cli")
+                .arg("--yolo"); // Auto-aceptar acciones para evitar confirmaciones
+            cmd
+        };
+
+        // Iniciar el proceso con pipes para stdin/stdout/stderr
+        let mut child = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Error ejecutando Gemini CLI: {}. Asegúrate de tener Node.js instalado.", e))?;
+
+        // Escribir el prompt al stdin del proceso hijo
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(command.as_bytes())
+                .map_err(|e| format!("Fallo al escribir a stdin de Gemini CLI: {}", e))?;
+        }
+
+        // Esperar que el proceso termine y capturar la salida
+        let output = child.wait_with_output()
+            .map_err(|e| format!("Error esperando por el proceso de Gemini CLI: {}", e))?;
 
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -181,7 +197,7 @@ impl GeminiProcessManager {
             Ok(result)
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            let error_msg = format!("Gemini CLI falló con código [{}]: {}", output.status, stderr);
+            let error_msg = format!("Gemini CLI falló: {}", stderr);
             log::error!("❌ {}", error_msg);
             Err(error_msg.into())
         }

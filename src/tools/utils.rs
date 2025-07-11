@@ -1,12 +1,13 @@
+
 // ============================================================================
 // UTILS TOOLS - Herramientas de Utilidades
 // ============================================================================
 
-use super::{Tool, ToolParams, ToolResult, ToolError, ToolCategory, RiskLevel, create_parameters_schema};
+use super::{Tool, ToolParams, ToolResult, ToolError, ToolCategory, create_parameters_schema};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 // ============================================================================
 // BASE64 TOOL
@@ -74,7 +75,7 @@ impl Tool for Base64Tool {
                     }
                 };
                 
-                let encoded = base64::encode(&bytes);
+                let encoded = STANDARD.encode(&bytes);
                 serde_json::json!({
                     "operation": "encode",
                     "input": input,
@@ -85,7 +86,7 @@ impl Tool for Base64Tool {
                 })
             }
             "decode" => {
-                let bytes = base64::decode(&input)
+                let bytes = STANDARD.decode(&input)
                     .map_err(|e| ToolError::InvalidParameter("input".to_string(), format!("Base64 inválido: {}", e)))?;
                 
                 // Intentar convertir a texto UTF-8
@@ -186,7 +187,7 @@ impl Tool for HashTool {
         
         let output = match output_format.as_str() {
             "hex" => hex::encode(&hash_bytes),
-            "base64" => base64::encode(&hash_bytes),
+            "base64" => STANDARD.encode(&hash_bytes),
             _ => {
                 return Ok(ToolResult::error(format!("Formato de salida no soportado: {}", output_format)));
             }

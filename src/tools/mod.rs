@@ -21,7 +21,6 @@ pub mod utils;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error::Error;
 
 // ============================================================================
 // CORE TOOL INFRASTRUCTURE
@@ -332,8 +331,7 @@ pub fn create_parameters_schema(properties: serde_json::Value, required: Vec<&st
 }
 
 /// Validar parámetros contra esquema
-pub fn validate_parameters(params: &ToolParams, schema: &serde_json::Value) -> Result<(), ToolError> {
-    // Implementación básica de validación
-    // En producción usaríamos una librería como jsonschema
+pub fn validate_parameters(_params: &ToolParams, _schema: &serde_json::Value) -> Result<(), ToolError> {
+    // TODO: Implementar validación de JSON Schema
     Ok(())
 } 

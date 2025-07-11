@@ -56,11 +56,19 @@ pub struct CodeGenerationResult {
     pub verification_passed: bool,
     pub cost_estimate: Option<CostEstimate>,
     pub model_used: Option<String>,
+    pub metrics: CodeGenerationMetrics,
 }
 
 // ============================================================================
 // NUEVAS ESTRUCTURAS PARA THINKING Y PERFORMANCE
 // ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CodeGenerationMetrics {
+    pub cyclomatic_complexity: u32,
+    pub lines_of_code: u32,
+    pub token_count: u32,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThinkingResult {
@@ -131,6 +139,8 @@ pub enum FlowError {
     MaxAttemptsReached(u32),
     CostLimitExceeded(f64),
     ThinkingModeNotSupported,
+    AdapterNotFound(String),
+    InvalidResponse(String),
 }
 
 impl fmt::Display for FlowError {
@@ -149,6 +159,12 @@ impl fmt::Display for FlowError {
             }
             FlowError::ThinkingModeNotSupported => {
                 write!(f, "Modo thinking no soportado por este modelo")
+            }
+            FlowError::AdapterNotFound(adapter_name) => {
+                write!(f, "Adaptador no encontrado: {}", adapter_name)
+            }
+            FlowError::InvalidResponse(msg) => {
+                write!(f, "Respuesta inválida de la IA: {}", msg)
             }
         }
     }

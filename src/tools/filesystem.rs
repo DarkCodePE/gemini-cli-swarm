@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 use glob::glob;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 use tokio::fs as async_fs;
 
@@ -244,7 +245,7 @@ impl Tool for ReadFileTool {
             } else {
                 async_fs::read(&path_buf).await?
             };
-            base64::encode(&bytes)
+            STANDARD.encode(&bytes)
         } else {
             let text = if let (Some(start), Some(end)) = (start_byte, end_byte) {
                 let bytes = read_file_range(&path_buf, start, end).await?;
@@ -374,7 +375,7 @@ impl Tool for WriteFileTool {
                 }
             }
             "binary-base64" => {
-                let bytes = base64::decode(&content)
+                let bytes = STANDARD.decode(&content)
                     .map_err(|e| ToolError::InvalidParameter("content".to_string(), format!("Base64 inválido: {}", e)))?;
                 if append {
                     let mut existing_bytes = if path_buf.exists() {
