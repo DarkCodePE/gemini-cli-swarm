@@ -25,7 +25,7 @@ env_logger = "0.10"
 thiserror = "1.0"
 
 # HTTP and networking
-reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest = { version = "0.12", features = ["json"] }
 futures = "0.3"
 
 # UI and CLI enhancement
@@ -75,6 +75,7 @@ flate2 = "1.0"                # For compression
 csv = "1.3"                   # For CSV processing
 sysinfo = "0.30"              # For system information
 which = "5.0"                 # For finding executables
+lazy_static = "1.5.0"
 
 [features]
 default = ["tools-extended"]  # Temporalmente deshabilitar neural

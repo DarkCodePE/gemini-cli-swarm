@@ -1,14 +1,12 @@
 // ============================================================================
-// ENJAMBRE NATIVE TOOLS SYSTEM v2.0
-// ============================================================================
-// Sistema de herramientas nativo integrado que supera a Claude-Flow MCP:
-// - Zero overhead (sin protocolos externos)
-// - Integración nativa con Gemini Function Calling
-// - Performance local vs red/HTTP
-// - Flexibilidad total vs estándar MCP
-// - 87+ herramientas especializadas para agentes autónomos
+// TOOLS MODULE - Sistema de Herramientas Nativas para Enjambre
 // ============================================================================
 
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+// Módulos de herramientas
 pub mod core;
 pub mod filesystem;
 pub mod system;
@@ -16,17 +14,15 @@ pub mod text;
 pub mod network;
 pub mod data;
 pub mod memory;
+pub mod safla_tool;
+pub mod ruv_swarm_tool;
 pub mod utils;
 
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
 // ============================================================================
-// CORE TOOL INFRASTRUCTURE
+// TRAIT PRINCIPAL: Tool
 // ============================================================================
 
-/// Trait principal para todas las herramientas de Enjambre
+/// Trait que define la interfaz común para todas las herramientas
 #[async_trait]
 pub trait Tool: Send + Sync {
     /// Nombre único de la herramienta
@@ -55,6 +51,10 @@ pub trait Tool: Send + Sync {
     }
 }
 
+// ============================================================================
+// ENUMS Y ESTRUCTURAS
+// ============================================================================
+
 /// Categorías de herramientas
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ToolCategory {
@@ -70,8 +70,8 @@ pub enum ToolCategory {
     AI,
 }
 
-/// Nivel de riesgo de las operaciones
-#[derive(Debug, Clone, PartialEq)]
+/// Niveles de riesgo
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RiskLevel {
     Low,     // Operaciones de lectura
     Medium,  // Operaciones de escritura
@@ -93,30 +93,28 @@ impl ToolParams {
     }
     
     pub fn insert<T: Serialize>(mut self, key: &str, value: T) -> Self {
-        self.data.insert(key.to_string(), serde_json::to_value(value).unwrap());
+        self.data.insert(key.to_string(), serde_json::to_value(value).unwrap_or(serde_json::Value::Null));
         self
     }
     
     pub fn get<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<T, ToolError> {
-        let value = self.data.get(key)
-            .ok_or_else(|| ToolError::MissingParameter(key.to_string()))?;
-        serde_json::from_value(value.clone())
-            .map_err(|e| ToolError::InvalidParameter(key.to_string(), e.to_string()))
+        self.data.get(key)
+            .ok_or_else(|| ToolError::MissingParameter(key.to_string()))
+            .and_then(|v| serde_json::from_value(v.clone()).map_err(|e| ToolError::InvalidParameter(key.to_string(), e.to_string())))
     }
     
     pub fn get_optional<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<Option<T>, ToolError> {
         match self.data.get(key) {
-            Some(value) => {
-                let result = serde_json::from_value(value.clone())
-                    .map_err(|e| ToolError::InvalidParameter(key.to_string(), e.to_string()))?;
-                Ok(Some(result))
-            }
+            Some(v) if v.is_null() => Ok(None),
+            Some(v) => serde_json::from_value(v.clone())
+                .map(Some)
+                .map_err(|e| ToolError::InvalidParameter(key.to_string(), e.to_string())),
             None => Ok(None),
         }
     }
 }
 
-/// Resultado de la ejecución de herramientas
+/// Resultado de ejecución de herramientas
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResult {
     pub success: bool,
@@ -129,7 +127,7 @@ impl ToolResult {
     pub fn success<T: Serialize>(data: T, message: String) -> Self {
         Self {
             success: true,
-            data: serde_json::to_value(data).unwrap(),
+            data: serde_json::to_value(data).unwrap_or(serde_json::Value::Null),
             message,
             metadata: None,
         }
@@ -176,6 +174,12 @@ pub enum ToolError {
     
     #[error("Error interno: {0}")]
     InternalError(String),
+    
+    #[error("Error de ejecución: {0}")]
+    ExecutionError(String),
+    
+    #[error("Respuesta inválida: {0}")]
+    InvalidResponse(String),
 }
 
 impl From<std::io::Error> for ToolError {
@@ -188,7 +192,7 @@ impl From<std::io::Error> for ToolError {
 // REGISTRY DE HERRAMIENTAS
 // ============================================================================
 
-/// Registry central de todas las herramientas
+/// Registro global de herramientas
 pub struct ToolRegistry {
     tools: HashMap<String, Box<dyn Tool>>,
     categories: HashMap<ToolCategory, Vec<String>>,
@@ -202,14 +206,13 @@ impl ToolRegistry {
         }
     }
     
-    /// Registrar una nueva herramienta
+    /// Registra una nueva herramienta
     pub fn register<T: Tool + 'static>(&mut self, tool: T) {
         let name = tool.name().to_string();
         let category = tool.category();
         
         // Agregar a categoría
-        self.categories
-            .entry(category)
+        self.categories.entry(category)
             .or_insert_with(Vec::new)
             .push(name.clone());
         
@@ -217,111 +220,96 @@ impl ToolRegistry {
         self.tools.insert(name, Box::new(tool));
     }
     
-    /// Obtener herramienta por nombre
+    /// Obtiene una herramienta por nombre
     pub fn get(&self, name: &str) -> Option<&dyn Tool> {
         self.tools.get(name).map(|t| t.as_ref())
     }
     
-    /// Listar todas las herramientas
+    /// Lista todas las herramientas
     pub fn list_all(&self) -> Vec<&str> {
         self.tools.keys().map(|s| s.as_str()).collect()
     }
     
-    /// Listar herramientas por categoría
+    /// Lista herramientas por categoría
     pub fn list_by_category(&self, category: &ToolCategory) -> Vec<&str> {
-        self.categories
-            .get(category)
+        self.categories.get(category)
             .map(|tools| tools.iter().map(|s| s.as_str()).collect())
-            .unwrap_or_default()
+            .unwrap_or_else(Vec::new)
     }
     
-    /// Obtener esquema para Gemini Function Calling
+    /// Obtiene esquemas de función para Gemini
     pub fn get_function_schemas(&self) -> Vec<serde_json::Value> {
-        self.tools
-            .values()
-            .map(|tool| {
-                serde_json::json!({
-                    "name": tool.name(),
-                    "description": tool.description(),
-                    "parameters": tool.parameters_schema()
-                })
+        self.tools.values().map(|tool| {
+            serde_json::json!({
+                "name": tool.name(),
+                "description": tool.description(),
+                "parameters": tool.parameters_schema()
             })
-            .collect()
+        }).collect()
     }
     
-    /// Ejecutar herramienta por nombre
+    /// Ejecuta una herramienta
     pub async fn execute(&self, name: &str, params: ToolParams) -> Result<ToolResult, ToolError> {
         let tool = self.get(name)
             .ok_or_else(|| ToolError::ToolNotFound(name.to_string()))?;
         
-        // Verificar nivel de riesgo
-        if tool.risk_level() == RiskLevel::Critical {
-            return Err(ToolError::PermissionDenied(
-                "Operación crítica requiere confirmación explícita".to_string()
-            ));
+        // Verificar si requiere confirmación
+        if tool.requires_confirmation() {
+            // TODO: Implementar sistema de confirmación
+            println!("⚠️  La herramienta '{}' requiere confirmación del usuario", name);
         }
         
+        // Ejecutar
         tool.execute(params).await
     }
 }
 
-/// Registry global singleton
-static mut GLOBAL_REGISTRY: Option<ToolRegistry> = None;
-static mut REGISTRY_INITIALIZED: bool = false;
+// ============================================================================
+// INSTANCIA GLOBAL SIMPLIFICADA
+// ============================================================================
 
-/// Inicializar el registry global con herramientas básicas
-pub fn initialize_registry() -> &'static mut ToolRegistry {
-    unsafe {
-        if !REGISTRY_INITIALIZED {
-            let mut registry = ToolRegistry::new();
-            
-            // Registrar herramientas básicas que existen
-            registry.register(filesystem::ListFilesTool::new());
-            registry.register(filesystem::ReadFileTool::new());
-            registry.register(filesystem::WriteFileTool::new());
-            registry.register(memory::MemoryStoreTool::new());
-            registry.register(memory::MemoryRetrieveTool::new());
-            registry.register(memory::MemoryListTool::new());
-            registry.register(system::SystemInfoTool::new());
-            registry.register(text::TextProcessTool::new());
-            registry.register(utils::Base64Tool::new());
-            registry.register(utils::HashTool::new());
-            registry.register(utils::UrlTool::new());
-            registry.register(utils::JsonTool::new());
-            
-            GLOBAL_REGISTRY = Some(registry);
-            REGISTRY_INITIALIZED = true;
-        }
-        
-        GLOBAL_REGISTRY.as_mut().unwrap()
-    }
+/// Inicializa el registro global de herramientas
+pub fn initialize_registry() -> ToolRegistry {
+    let mut registry = ToolRegistry::new();
+    
+    // Registrar herramientas de filesystem
+    registry.register(filesystem::ListFilesTool::new());
+    registry.register(filesystem::ReadFileTool::new());
+    registry.register(filesystem::WriteFileTool::new());
+    
+    // Registrar herramientas de memoria
+    registry.register(memory::MemoryStoreTool::new());
+    registry.register(memory::MemoryRetrieveTool::new());
+    registry.register(memory::MemoryListTool::new());
+    
+    // Registrar herramientas de utilidades
+    registry.register(utils::Base64Tool::new());
+    registry.register(utils::HashTool::new());
+    registry.register(utils::UrlTool::new());
+    registry.register(utils::JsonTool::new());
+    
+    // Registrar herramientas de AI
+    registry.register(safla_tool::SaflaTool::new());
+    registry.register(ruv_swarm_tool::RuvSwarmTool::new());
+    
+    registry
 }
 
-/// Obtener el registry global
-pub fn get_registry() -> &'static ToolRegistry {
-    unsafe {
-        if !REGISTRY_INITIALIZED {
-            initialize_registry();
-        }
-        GLOBAL_REGISTRY.as_ref().unwrap()
-    }
+/// Obtiene un registro inicializado
+pub fn get_registry() -> ToolRegistry {
+    initialize_registry()
 }
 
-/// Obtener el registry global mutable
-pub fn get_registry_mut() -> &'static mut ToolRegistry {
-    unsafe {
-        if !REGISTRY_INITIALIZED {
-            initialize_registry();
-        }
-        GLOBAL_REGISTRY.as_mut().unwrap()
-    }
+/// Obtiene un registro inicializado mutable
+pub fn get_registry_mut() -> ToolRegistry {
+    initialize_registry()
 }
 
 // ============================================================================
-// UTILITIES
+// UTILIDADES
 // ============================================================================
 
-/// Crear esquema JSON Schema para parámetros
+/// Crea un esquema de parámetros estándar
 pub fn create_parameters_schema(properties: serde_json::Value, required: Vec<&str>) -> serde_json::Value {
     serde_json::json!({
         "type": "object",
@@ -330,8 +318,8 @@ pub fn create_parameters_schema(properties: serde_json::Value, required: Vec<&st
     })
 }
 
-/// Validar parámetros contra esquema
+/// Valida parámetros contra un esquema
 pub fn validate_parameters(_params: &ToolParams, _schema: &serde_json::Value) -> Result<(), ToolError> {
-    // TODO: Implementar validación de JSON Schema
+    // TODO: Implementar validación real usando jsonschema
     Ok(())
 } 

@@ -37,9 +37,9 @@ pub struct SwarmArgs {
     #[arg(long, value_name = "USD")]
     pub max_cost: Option<f64>,
 
-    /// Presupuesto mensual en USD
+    /// Presupuesto diario en USD
     #[arg(long, value_name = "USD")]
-    pub monthly_budget: Option<f64>,
+    pub daily_budget: Option<f64>,
 
     /// Prioridad de la tarea (low, medium, high, critical)
     #[arg(long, value_enum, default_value = "medium")]
@@ -87,23 +87,19 @@ impl From<CliPriority> for TaskPriority {
 
 #[derive(clap::ValueEnum, Clone, Debug)]
 pub enum CliModelChoice {
-    Gemini2Pro,
-    Gemini25Pro,
-    Gemini25Flash,
-    Claude35Sonnet,
-    Claude37Sonnet,
-    AutoSelect,
+    Gemini15Flash,
+    Gemini15Pro,
+    Gemini15ProExp,
+    Auto,
 }
 
 impl From<CliModelChoice> for ModelChoice {
     fn from(cli_model: CliModelChoice) -> Self {
         match cli_model {
-            CliModelChoice::Gemini2Pro => ModelChoice::Gemini2Pro,
-            CliModelChoice::Gemini25Pro => ModelChoice::Gemini25Pro,
-            CliModelChoice::Gemini25Flash => ModelChoice::Gemini25Flash,
-            CliModelChoice::Claude35Sonnet => ModelChoice::Claude35Sonnet,
-            CliModelChoice::Claude37Sonnet => ModelChoice::Claude37Sonnet,
-            CliModelChoice::AutoSelect => ModelChoice::AutoSelect,
+            CliModelChoice::Gemini15Flash => ModelChoice::Gemini15Flash,
+            CliModelChoice::Gemini15Pro => ModelChoice::Gemini15Pro,
+            CliModelChoice::Gemini15ProExp => ModelChoice::Gemini15ProExp,
+            CliModelChoice::Auto => ModelChoice::Auto,
         }
     }
 }
@@ -116,36 +112,23 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
             .init();
     }
 
-    // ============================================================================
-    // CONFIGURACIÓN INICIAL CON OPTIMIZACIONES
-    // ============================================================================
-    
     println!("{}", "🚀 Inicializando Enjambre Swarm v2.0".bright_green().bold());
     println!("{}", "💡 Con Cost Optimization y Performance Monitoring".bright_cyan());
     println!();
 
-    // Configurar constraints de costo
     let cost_constraints = CostConstraints {
-        max_cost_per_task: args.max_cost,
-        monthly_budget: args.monthly_budget,
-        current_month_spent: 0.0,
-        priority_level: match args.priority {
+        max_cost_per_request: args.max_cost,
+        daily_budget: args.daily_budget,
+        priority: match args.priority {
             CliPriority::Low => PriorityLevel::Low,
-            CliPriority::Medium => PriorityLevel::Balanced,
+            CliPriority::Medium => PriorityLevel::Medium,
             CliPriority::High => PriorityLevel::High,
             CliPriority::Critical => PriorityLevel::Critical,
         },
     };
 
-    // Configurar thresholds de alertas
-    let alert_thresholds = AlertThresholds {
-        min_success_rate: 0.80,
-        max_response_time_ms: 30000.0,
-        max_cost_per_task: args.max_cost.unwrap_or(0.50),
-        min_tokens_per_second: 50.0,
-    };
+    let alert_thresholds = AlertThresholds::default();
 
-    // Configuración del swarm con optimizaciones
     let swarm_config = SwarmConfig {
         max_concurrent_tasks: 4,
         default_adapter: if args.gemini { "gemini".to_string() } else { "gemini".to_string() },
@@ -157,10 +140,6 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         alert_thresholds,
     };
 
-    // ============================================================================
-    // INICIALIZACIÓN DEL SWARM
-    // ============================================================================
-
     let spinner = ProgressBar::new_spinner();
     spinner.set_style(ProgressStyle::default_spinner()
         .template("{spinner:.green} {msg}")
@@ -170,10 +149,8 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
 
     let mut orchestrator = SwarmOrchestrator::new(swarm_config);
 
-    // Configuración de adaptadores
     let mut adapter_configs = HashMap::new();
     
-    // Configurar API key desde variables de entorno
     let api_key = std::env::var("GEMINI_API_KEY")
         .or_else(|_| std::env::var("GOOGLE_API_KEY"))
         .unwrap_or_else(|_| {
@@ -187,7 +164,7 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         let adapter_config = AdapterConfig {
             api_key,
             base_url: None,
-            timeout_seconds: 120, // Aumentado de 30 a 120 segundos para mejor estabilidad
+            timeout_seconds: 120,
             max_attempts: 3,
             enable_verification: true,
             project_id: std::env::var("GOOGLE_PROJECT_ID").ok(),
@@ -197,7 +174,6 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         adapter_configs.insert("gemini".to_string(), adapter_config);
     }
 
-    // Inicializar swarm
     match orchestrator.initialize(adapter_configs).await {
         Ok(_) => {
             spinner.finish_with_message("✅ Adaptadores inicializados correctamente");
@@ -209,17 +185,12 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         }
     }
 
-    // ============================================================================
-    // CONSTRUCCIÓN Y CONFIGURACIÓN DE LA TAREA
-    // ============================================================================
-
     println!();
     println!("{}", "📋 Configurando tarea...".bright_blue());
 
     let mut task_builder = TaskBuilder::new(TaskType::CodeGeneration, args.task.clone())
         .with_priority(args.priority.into());
 
-    // Configurar thinking mode
     if args.thinking_verbose {
         task_builder = task_builder.with_thinking_mode(ThinkingMode::StepByStep { show_intermediate: true });
         println!("  🧠 Modo thinking: Paso a paso con detalles");
@@ -228,7 +199,6 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         println!("  🧠 Modo thinking: Extendido");
     }
 
-    // Configurar límite de costo
     if let Some(max_cost) = args.max_cost {
         task_builder = task_builder.with_max_cost(max_cost);
         println!("  💰 Límite de costo: ${:.3}", max_cost);
@@ -236,7 +206,6 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
 
     let task = task_builder.build();
 
-    // Mostrar información de la tarea
     println!("  📝 Descripción: {}", args.task.bright_white());
     println!("  🎯 Prioridad: {:?}", args.priority);
     if let Some(model) = &args.model {
@@ -244,10 +213,6 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
     } else {
         println!("  🤖 Modelo: Selección automática optimizada");
     }
-
-    // ============================================================================
-    // ANÁLISIS PRE-EJECUCIÓN
-    // ============================================================================
 
     if args.metrics || args.recommendations {
         println!();
@@ -258,26 +223,18 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
 
         if args.metrics {
             println!("  📈 Success Rate Actual: {:.1}%", current_metrics.success_rate * 100.0);
-            println!("  📈 Target Claude-Flow: 84.8%");
-            println!("  ⚡ Speed Improvement: {:.1}x", current_metrics.speed_improvement_factor);
-            println!("  ⚡ Target: 2.8-4.4x");
+            println!("  ⏱️ Avg. Response Time: {}ms", current_metrics.average_response_time_ms);
             println!("  💰 Ahorro Total: ${:.3}", optimization_stats.total_cost_saved);
         }
 
         if args.recommendations && !optimization_stats.recommendations.is_empty() {
             println!("  💡 Recomendaciones:");
             for rec in &optimization_stats.recommendations {
-                println!("    - {}: {}", rec.category.bright_yellow(), rec.description);
-                if rec.potential_savings > 0.0 {
-                    println!("      💰 Ahorro estimado: ${:.3}", rec.potential_savings);
-                }
+                println!("    - Modelo {:?}: {}", rec.model, rec.reason.bright_yellow());
+                println!("      Costo Estimado: ${:.4}, Confianza: {:.1}%", rec.estimated_cost, rec.confidence * 100.0);
             }
         }
     }
-
-    // ============================================================================
-    // EJECUCIÓN OPTIMIZADA DE LA TAREA
-    // ============================================================================
 
     println!();
     println!("{}", "⚡ Ejecutando tarea con optimizaciones...".bright_green().bold());
@@ -295,15 +252,10 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
 
     execution_bar.finish_and_clear();
 
-    // ============================================================================
-    // PROCESAMIENTO Y VISUALIZACIÓN DE RESULTADOS
-    // ============================================================================
-
     println!();
     if result.success {
         println!("{}", "🎉 ¡Tarea completada exitosamente!".bright_green().bold());
         
-        // Mostrar información de optimización
         println!();
         println!("{}", "📊 Métricas de Optimización:".bright_cyan().bold());
         println!("  🤖 Modelo usado: {:?}", result.selected_model);
@@ -312,14 +264,13 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         println!("  💰 Costo real: ${:.4}", result.cost_actual);
         
         if result.cost_saved > 0.0 {
-            println!("  💚 Ahorro vs Claude premium: ${:.4}", result.cost_saved);
+            println!("  💚 Ahorro vs modelo caro: ${:.4}", result.cost_saved);
             let savings_percent = (result.cost_saved / (result.cost_actual + result.cost_saved)) * 100.0;
             println!("  📈 Ahorro porcentual: {:.1}%", savings_percent);
         }
         
         println!("  🎯 Score de performance: {:.1}%", result.performance_score * 100.0);
 
-        // Mostrar resultado
         if let Some(code_result) = &result.result {
             println!();
             println!("{}", "📝 Resultado Generado:".bright_white().bold());
@@ -335,7 +286,6 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
             println!("  ✅ Verificación: {}", if code_result.verification_passed { "Pasó ✓" } else { "Falló ✗" });
         }
 
-        // Mostrar thinking result si está disponible
         if let Some(thinking_result) = &result.thinking_result {
             println!();
             println!("{}", "🧠 Proceso de Razonamiento:".bright_magenta().bold());
@@ -361,10 +311,6 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         }
     }
 
-    // ============================================================================
-    // ALERTAS Y RECOMENDACIONES POST-EJECUCIÓN
-    // ============================================================================
-
     let performance_report = orchestrator.get_performance_report();
     if !performance_report.alerts.is_empty() {
         println!();
@@ -376,14 +322,10 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
                 crate::performance::AlertSeverity::High => "🟠",
                 crate::performance::AlertSeverity::Critical => "🔴",
             };
-            println!("  {} {}: {}", severity_icon, alert.category, alert.message);
-            println!("    💡 Recomendación: {}", alert.recommendation.bright_blue());
+            println!("  {} {}: {}", severity_icon, alert.metric_name, alert.message);
+            println!("    Valor: {:.2}, Umbral: {:.2}", alert.current_value, alert.threshold);
         }
     }
-
-    // ============================================================================
-    // EXPORTAR REPORTE DETALLADO
-    // ============================================================================
 
     if args.export_report {
         println!();
@@ -401,14 +343,10 @@ pub async fn execute_swarm_command(args: SwarmArgs) -> Result<(), Box<dyn std::e
         }
     }
 
-    // ============================================================================
-    // COMPARACIÓN CON CLAUDE-FLOW
-    // ============================================================================
-
     if args.metrics {
         println!();
-        println!("{}", "📊 Comparación con Claude-Flow:".bright_cyan().bold());
-        let comparison = performance_report.claude_flow_comparison;
+        println!("{}", "📊 Comparación de Performance:".bright_cyan().bold());
+        let comparison = orchestrator.get_optimization_stats().claude_flow_comparison;
         
         println!("  🎯 Success Rate:");
         println!("    Target: {:.1}%", comparison.target_success_rate * 100.0);

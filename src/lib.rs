@@ -179,9 +179,10 @@ impl Error for FlowError {}
 pub mod adapters;
 pub mod neuro_divergent;
 pub mod swarm;
+pub mod tools;  // ✨ NUEVO: Sistema de herramientas nativas
+pub mod mcp_client; // <-- AÑADIDO
 pub mod cost_optimizer;
 pub mod performance;
-pub mod tools;  // ✨ NUEVO: Sistema de herramientas nativas
 
 // CLI module is only available when not compiling to WASM
 #[cfg(not(target_arch = "wasm32"))]

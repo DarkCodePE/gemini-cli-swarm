@@ -278,9 +278,9 @@ impl CodeGenerationFlow for GeminiCLIFlow {
 
     fn get_capabilities(&self) -> AdapterCapabilities {
         let (cost_input, cost_output, supports_thinking, max_tokens) = match self.model_choice {
-            ModelChoice::Gemini2Pro => (0.10, 0.40, false, 2_000_000),
-            ModelChoice::Gemini25Pro => (1.25, 10.00, true, 1_000_000),
-            ModelChoice::Gemini25Flash => (0.075, 0.30, false, 1_000_000),
+            ModelChoice::Gemini15Pro => (1.25, 10.00, true, 1_000_000),
+            ModelChoice::Gemini15Flash => (0.075, 0.30, false, 1_000_000),
+            ModelChoice::Gemini15ProExp => (1.25, 10.00, true, 1_000_000),
             _ => (1.25, 10.00, false, 1_000_000), // Default
         };
 
@@ -375,7 +375,7 @@ impl ThinkingFlow for GeminiCLIFlow {
 impl GeminiCLIFlow {
     /// Constructor para modo API directa
     pub async fn new(config: AdapterConfig) -> Result<Self, FlowError> {
-        Self::new_with_model(config, ModelChoice::Gemini25Pro).await
+        Self::new_with_model(config, ModelChoice::Gemini15Pro).await
     }
 
     /// Constructor con selección específica de modelo
@@ -419,16 +419,16 @@ impl GeminiCLIFlow {
             process_manager: Some(process_manager),
             thinking_mode: ThinkingMode::Standard,
             reasoning_steps: Vec::new(),
-            model_choice: ModelChoice::Gemini25Pro, // Default para CLI
+            model_choice: ModelChoice::Gemini15Pro, // Default para CLI
         })
     }
 
     /// Obtiene el endpoint de API según el modelo
     fn get_api_endpoint(model_choice: &ModelChoice) -> String {
         let model_name = match model_choice {
-            ModelChoice::Gemini2Pro => "gemini-2.0-pro",
-            ModelChoice::Gemini25Pro => "gemini-2.5-pro",
-            ModelChoice::Gemini25Flash => "gemini-2.5-flash",
+            ModelChoice::Gemini15Pro => "gemini-1.5-pro",
+            ModelChoice::Gemini15Flash => "gemini-1.5-flash",
+            ModelChoice::Gemini15ProExp => "gemini-1.5-pro-exp",
             _ => "gemini-2.5-pro", // Default
         };
 
@@ -440,7 +440,7 @@ impl GeminiCLIFlow {
 
     /// Verifica si el modelo actual soporta thinking
     fn supports_thinking(&self) -> bool {
-        matches!(self.model_choice, ModelChoice::Gemini25Pro | ModelChoice::Claude37Sonnet)
+        matches!(self.model_choice, ModelChoice::Gemini15Pro | ModelChoice::Gemini15ProExp)
     }
 
     /// Prepara el prompt para thinking mode

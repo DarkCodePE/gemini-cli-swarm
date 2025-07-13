@@ -11,10 +11,10 @@ pub async fn handle_performance_command(cmd: PerformanceCommands) -> Result<(), 
             print_success("Bottleneck analysis completed");
         }
         PerformanceCommands::Tokens => {
-            print_success("Token usage: 1,234 tokens used this session");
+            print_success("Token usage: 0 tokens used");
         }
         PerformanceCommands::Benchmark { bench_type: _ } => {
-            print_success("Benchmark completed: 87.3% performance score");
+            print_success("Benchmark completed");
         }
     }
     Ok(())
