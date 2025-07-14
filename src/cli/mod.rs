@@ -127,7 +127,7 @@ pub enum HiveMindCommands {
     #[command(about = "🚀 Deploy specialized worker agents for complex tasks")]
     Spawn {
         /// Task for the swarm
-        task: String,
+        task: Vec<String>,
         
         /// Number of agents
         #[arg(short, long, default_value = "6")]
